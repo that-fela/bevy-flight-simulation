@@ -1,0 +1,305 @@
+use crate::plane::plane_config::{self, PlaneConfig};
+use bevy::prelude::*;
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct FlightModel {
+    pub common_force: Vec3,
+    pub common_moment: Vec3,
+    pub center_of_mass: Vec3,
+    pub moment_of_inertia: [f32; 4],
+    pub wind: Vec3,
+    pub velocity: Vec3,
+    pub angular_velocity: Vec3,
+    pub airspeed: Vec3,
+    pub current_mass: f32,
+
+    pub pi: f32,
+    pub rad_to_deg: f32,
+
+    pub s: f32,
+    pub wingspan: f32,
+    pub length: f32,
+    pub height: f32,
+    pub idle_rpm: f32,
+
+    pub left_wing_pos: Vec3,
+    pub right_wing_pos: Vec3,
+    pub tail_pos: Vec3,
+    pub elevator_pos: Vec3,
+    pub left_aileron_pos: Vec3,
+    pub right_aileron_pos: Vec3,
+    pub rudder_pos: Vec3,
+    pub left_engine_pos: Vec3,
+    pub right_engine_pos: Vec3,
+
+    pub pitch_input: f32,
+    pub pitch_discrete: i32,
+    pub pitch_analog: bool,
+    pub pitch_trim: f32,
+    pub elevator_command: f32,
+
+    pub roll_input: f32,
+    pub roll_discrete: i32,
+    pub roll_analog: bool,
+    pub roll_trim: f32,
+    pub aileron_command: f32,
+
+    pub yaw_input: f32,
+    pub yaw_discrete: i32,
+    pub yaw_analog: bool,
+    pub yaw_trim: f32,
+    pub rudder_command: f32,
+
+    pub left_engine_switch: bool,
+    pub left_throttle_input: f32,
+    pub left_throttle_output: f32,
+    pub left_engine_power_readout: f32,
+    pub left_thrust_force: f32,
+
+    pub right_engine_switch: bool,
+    pub right_throttle_input: f32,
+    pub right_throttle_output: f32,
+    pub right_engine_power_readout: f32,
+    pub right_thrust_force: f32,
+
+    pub airbrake_switch: bool,
+    pub airbrake_pos: f32,
+    pub flaps_pos: f32,
+    pub flaps_switch: bool,
+    pub slats_pos: f32,
+
+    pub gear_switch: bool,
+    pub gear_pos: f32,
+    pub wheel_brake: f32,
+    pub carrier_pos: i32,
+
+    pub internal_fuel: f32,
+    pub external_fuel: f32,
+    pub total_fuel: f32,
+    pub fuel_consumption_since_last_time: f32,
+
+    pub atmosphere_density: f32,
+    pub altitude_asl: f32,
+    pub altitude_agl: f32,
+    pub v_scalar: f32,
+    pub speed_of_sound: f32,
+    pub mach: f32,
+    pub engine_alt_effect: f32,
+
+    pub aoa: f32,
+    pub alpha: f32,
+    pub aos: f32,
+    pub beta: f32,
+    pub g: f32,
+    pub atmosphere_temperature: f32,
+
+    pub on_ground: bool,
+    pub pitch: f32,
+    pub pitch_rate: f32,
+    pub roll: f32,
+    pub roll_rate: f32,
+    pub heading: f32,
+    pub yaw_rate: f32,
+
+    pub element_integrity: [i32; 111],
+    pub left_wing_integrity: f32,
+    pub right_wing_integrity: f32,
+    pub tail_integrity: f32,
+    pub left_engine_integrity: f32,
+    pub right_engine_integrity: f32,
+    pub total_damage: f32,
+
+    pub invincible: bool,
+    pub infinite_fuel: bool,
+    pub easy_flight: bool,
+
+    pub shake_amplitude: f32,
+    pub fm_clock: f32,
+    pub sim_initialised: bool,
+
+    pub plane_config: PlaneConfig,
+}
+
+impl FlightModel {
+    pub fn new(data: PlaneConfig) -> Self {
+        let cm = data.basic.center_of_mass;
+        let wingspan = data.basic.wingspan;
+        let length = data.basic.length;
+        let height = data.basic.height;
+        let idle_rpm = data.engine.idle_rpm / 100.0;
+        let current_mass = data.basic.gross_mass;
+
+        let cm_vec = Vec3 {
+            x: cm[0],
+            y: cm[1],
+            z: cm[2],
+        };
+
+        Self {
+            center_of_mass: cm_vec,
+            moment_of_inertia: data.basic.moment_of_inertia,
+            wingspan: wingspan,
+            length: length,
+            height: height,
+            idle_rpm: idle_rpm,
+            s: data.basic.wing_area,
+            current_mass: current_mass,
+
+            pi: std::f32::consts::PI,
+            rad_to_deg: 180.0 / std::f32::consts::PI,
+
+            left_wing_pos: Vec3 {
+                x: cm_vec.x - 0.7,
+                y: cm_vec.y + 0.5,
+                z: -wingspan / 2.0,
+            },
+            right_wing_pos: Vec3 {
+                x: cm_vec.x - 0.7,
+                y: cm_vec.y + 0.5,
+                z: wingspan / 2.0,
+            },
+            tail_pos: Vec3 {
+                x: cm_vec.x - 0.5,
+                y: cm_vec.y,
+                z: 0.0,
+            },
+            elevator_pos: Vec3 {
+                x: -length / 2.0,
+                y: cm_vec.y,
+                z: 0.0,
+            },
+            left_aileron_pos: Vec3 {
+                x: cm_vec.x,
+                y: cm_vec.y,
+                z: -wingspan * 0.5,
+            },
+            right_aileron_pos: Vec3 {
+                x: cm_vec.x,
+                y: cm_vec.y,
+                z: wingspan * 0.5,
+            },
+            rudder_pos: Vec3 {
+                x: -length / 2.0,
+                y: height / 2.0,
+                z: 0.0,
+            },
+            left_engine_pos: Vec3 {
+                x: -3.793,
+                y: -0.391,
+                z: -0.716,
+            },
+            right_engine_pos: Vec3 {
+                x: -3.793,
+                y: -0.391,
+                z: 0.716,
+            },
+            plane_config: data,
+            ..Default::default()
+        }
+    }
+}
+
+impl Default for FlightModel {
+    fn default() -> Self {
+        Self {
+            common_force: Vec3::default(),
+            common_moment: Vec3::default(),
+            center_of_mass: Vec3::default(),
+            moment_of_inertia: [0.0; 4],
+            wind: Vec3::default(),
+            velocity: Vec3::default(),
+            angular_velocity: Vec3::default(),
+            current_mass: 0.0,
+            airspeed: Vec3::default(),
+            pi: std::f32::consts::PI,
+            rad_to_deg: 180.0 / std::f32::consts::PI,
+            s: 0.0,
+            wingspan: 0.0,
+            length: 0.0,
+            height: 0.0,
+            idle_rpm: 0.0,
+            left_wing_pos: Vec3::default(),
+            right_wing_pos: Vec3::default(),
+            tail_pos: Vec3::default(),
+            elevator_pos: Vec3::default(),
+            left_aileron_pos: Vec3::default(),
+            right_aileron_pos: Vec3::default(),
+            rudder_pos: Vec3::default(),
+            left_engine_pos: Vec3::default(),
+            right_engine_pos: Vec3::default(),
+            pitch_input: 0.0,
+            pitch_discrete: 0,
+            pitch_analog: true,
+            pitch_trim: 0.0,
+            elevator_command: 0.0,
+            roll_input: 0.0,
+            roll_discrete: 0,
+            roll_analog: true,
+            roll_trim: 0.0,
+            aileron_command: 0.0,
+            yaw_input: 0.0,
+            yaw_discrete: 0,
+            yaw_analog: true,
+            yaw_trim: 0.0,
+            rudder_command: 0.0,
+            left_engine_switch: false,
+            left_throttle_input: 0.0,
+            left_throttle_output: 0.0,
+            left_engine_power_readout: 0.0,
+            left_thrust_force: 0.0,
+            right_engine_switch: false,
+            right_throttle_input: 0.0,
+            right_throttle_output: 0.0,
+            right_engine_power_readout: 0.0,
+            right_thrust_force: 0.0,
+            airbrake_switch: false,
+            airbrake_pos: 0.0,
+            flaps_pos: 0.0,
+            flaps_switch: false,
+            slats_pos: 0.0,
+            gear_switch: false,
+            gear_pos: 0.0,
+            wheel_brake: 0.0,
+            carrier_pos: 0,
+            internal_fuel: 0.0,
+            external_fuel: 0.0,
+            total_fuel: 0.0,
+            fuel_consumption_since_last_time: 0.0,
+            atmosphere_density: 101000.0,
+            altitude_asl: 0.0,
+            altitude_agl: 0.0,
+            v_scalar: 0.0,
+            speed_of_sound: 320.0,
+            mach: 0.0,
+            engine_alt_effect: 1.0,
+            aoa: 0.0,
+            alpha: 0.0,
+            aos: 0.0,
+            beta: 0.0,
+            g: 0.0,
+            atmosphere_temperature: 273.0,
+            on_ground: false,
+            pitch: 0.0,
+            pitch_rate: 0.0,
+            roll: 0.0,
+            roll_rate: 0.0,
+            heading: 0.0,
+            yaw_rate: 0.0,
+            element_integrity: [0; 111],
+            left_wing_integrity: 1.0,
+            right_wing_integrity: 1.0,
+            tail_integrity: 1.0,
+            left_engine_integrity: 1.0,
+            right_engine_integrity: 1.0,
+            total_damage: 0.0,
+            invincible: true,
+            infinite_fuel: false,
+            easy_flight: false,
+            shake_amplitude: 0.0,
+            fm_clock: 0.0,
+            sim_initialised: false,
+            plane_config: PlaneConfig::new("su-25t"),
+        }
+    }
+}
