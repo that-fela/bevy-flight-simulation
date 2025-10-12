@@ -16,7 +16,6 @@ mod util;
 
 use crate::ai::dogfight_ai::{DogfightAI, apply_ai_controls, update_dogfight_ai};
 use crate::plane::plane::Plane;
-use avian3d::math::PI;
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     light::CascadeShadowConfigBuilder,
@@ -45,7 +44,7 @@ struct Player;
 #[derive(Component)]
 struct Enemy;
 
-pub const PLANE_SPAWN_POS: Vec3 = vec3(0.0, 3000.0, 2000.0);
+pub const PLANE_SPAWN_POS: Vec3 = vec3(0.0, 1000.0, 0.0);
 pub const PLANE_SPAWN_VEL: Vec3 = vec3(0.0, 0.0, -200.0);
 
 fn main() {

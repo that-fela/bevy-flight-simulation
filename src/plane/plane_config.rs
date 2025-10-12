@@ -1,12 +1,8 @@
 #![allow(dead_code)]
 #![allow(non_snake_case)]
 
-use std::default;
-
 use bevy::math::Vec3;
 use serde::Deserialize;
-
-use crate::plane::plane::Plane;
 
 #[derive(Debug, Deserialize)]
 pub struct Unit {

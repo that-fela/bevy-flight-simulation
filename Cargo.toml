@@ -4,9 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-avian3d = { git = "https://github.com/Jondolf/avian", branch = "main" }
-bevy = "0.17"
+bevy = { version = "0.17", default-features = true, features = [] }
 rand = "0.9.2"
 serde = "1.0.228"
 toml = "0.9.7"
-bevy_atmosphere = "0.13"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

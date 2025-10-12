@@ -1,8 +1,8 @@
-// Add this to your plane module
-use bevy::prelude::*;
-use std::f32::consts::PI;
+#![allow(dead_code)]
+#![allow(unused)]
 
-// Component to mark AI-controlled planes
+use bevy::prelude::*;
+
 #[derive(Component)]
 pub struct DogfightAI {
     pub state: CombatState,
@@ -66,7 +66,7 @@ pub struct TacticalSituation {
 // System to update AI-controlled planes
 pub fn update_dogfight_ai(
     time: Res<Time>,
-    mut ai_query: Query<
+    ai_query: Query<
         (Entity, &mut DogfightAI, &Transform, &crate::PlaneComponent),
         With<crate::Enemy>,
     >,

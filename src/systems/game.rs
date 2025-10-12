@@ -1,4 +1,5 @@
 use crate::*;
+use std::f32::consts::PI;
 
 pub fn setup(
     mut commands: Commands,
@@ -87,7 +88,7 @@ pub fn setup(
     let cloud_size = 400.0; // meters
     let distibution_radius = 500000.0; // meters
     // for loop to create clouds in random positions
-    for i in 0..cloud_amount {
+    for _ in 0..cloud_amount {
         let x = (rand::random::<f32>() - 0.5) * distibution_radius;
         let z = (rand::random::<f32>() - 0.5) * distibution_radius;
         commands.spawn((
@@ -121,7 +122,7 @@ pub fn camera_follow(
         let turn = vec3(
             20.0 * (right_x * PI / 2.0).sin() * 1.2,
             20.0 * (right_y * PI / 2.0).sin() * 1.2 + 5.7,
-            (transform.translation.z * (right_x * PI / 2.0).cos() * 1.2),
+            transform.translation.z * (right_x * PI / 2.0).cos() * 1.2,
         );
 
         let mut rng = rand::rng();

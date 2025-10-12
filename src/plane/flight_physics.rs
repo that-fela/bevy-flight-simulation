@@ -1,13 +1,7 @@
-use std::f64::consts::E;
-use std::process::exit;
-
-use crate::PLANE_SPAWN_VEL;
-use crate::plane::{flight_model::FlightModel, plane_config};
-use crate::util::{actuator, iter_or_exit, limit, rad, rescale, table_lerp};
-use bevy::math::ops::sqrt;
+use crate::plane::flight_model::FlightModel;
+use crate::util::{actuator, limit, rad, rescale, table_lerp};
 use bevy::prelude::*;
 
-const MIN_HEIGHT: f32 = 2.0;
 const GRAV: Vec3 = vec3(0.0, -9.81, 0.0);
 pub const ALTITUDE_M: [f32; 16] = [
     0.0, 500.0, 1000.0, 1500.0, 2000.0, 2500.0, 3000.0, 3500.0, 4000.0, 4500.0, 5000.0, 6000.0,
@@ -28,20 +22,15 @@ fn global_to_local(global_vec: Vec3, world_rot: Quat) -> Vec3 {
     world_rot.normalize().inverse() * global_vec
 }
 
-fn sec_order_sim(x: f32, dx: f32, spring: f32, damp: f32) -> f32 {
-    let damp_f = -dx * damp;
-    let total = damp_f + x * spring;
-    total
-}
-
 impl FlightModel {
     fn add_local_moment(&mut self, moment: Vec3) {
         self.common_moment += moment;
     }
 
+    #[allow(dead_code)]
     fn add_local_force_draw(&mut self, force: Vec3, force_pos: Vec3, t: &Transform) {
-        let gb_pos = local_to_global((force_pos), t.rotation) + t.translation;
-        let rot = local_to_global((force), t.rotation);
+        let gb_pos = local_to_global(force_pos, t.rotation) + t.translation;
+        let rot = local_to_global(force, t.rotation);
         self.draw_vecs.push((rot, gb_pos));
 
         self.add_local_force(force, force_pos);
@@ -56,7 +45,7 @@ impl FlightModel {
         self.common_moment += delta_moment;
     }
 
-    fn sim_engine(&mut self, mach: &f32, dt: &f32, t: &Transform) {
+    fn sim_engine(&mut self, mach: &f32, dt: &f32, _t: &Transform) {
         let et = &self.plane_config.engine.tables;
         let max_dry_thrust = table_lerp(&et.mach, &et.max_thrust, *mach);
 
@@ -134,7 +123,7 @@ impl FlightModel {
         s: f32,
         aos: f32,
         aoa: f32,
-        t: &Transform,
+        _t: &Transform,
         cy_tail: f32,
     ) {
         if (self.alpha.abs() / alpha_max) >= 0.75 {
@@ -184,7 +173,7 @@ impl FlightModel {
         self.add_local_force(tail_force, self.tail_pos);
     }
 
-    pub fn update_elevator(&mut self, aoa: f32, q: f32, mach: &f32, t: &Transform) {
+    pub fn update_elevator(&mut self, aoa: f32, q: f32, mach: &f32, _t: &Transform) {
         if self.pitch_analog {
             self.pitch_input = limit(self.pitch_input, -1.0, 1.0);
         } else {
@@ -236,7 +225,7 @@ impl FlightModel {
         self.add_local_force(f, self.elevator_pos);
     }
 
-    pub fn update_roll(&mut self, aos: f32, aoa: f32, q: f32, t: &Transform) {
+    pub fn update_roll(&mut self, aos: f32, aoa: f32, q: f32, _t: &Transform) {
         if self.roll_analog {
             self.roll_input = limit(self.roll_input, -1.0, 1.0);
         } else {
@@ -289,7 +278,7 @@ impl FlightModel {
         );
     }
 
-    pub fn update_yaw(&mut self, aos: f32, q: f32, t: &Transform) {
+    pub fn update_yaw(&mut self, aos: f32, q: f32, _t: &Transform) {
         if self.yaw_analog {
             self.yaw_input = limit(self.yaw_input, -1.0, 1.0);
         } else {
@@ -506,9 +495,9 @@ impl FlightModel {
     fn wheel_on_ground(&mut self, gr: Quat, transform: &Transform) {
         let wheels = self.plane_config.structure;
 
-        let fwp = local_to_global((wheels.front_wheel), gr) + transform.translation;
-        let blwp = local_to_global((wheels.back_left_wheel), gr) + transform.translation;
-        let brwp = local_to_global((wheels.back_right_wheel), gr) + transform.translation;
+        let fwp = local_to_global(wheels.front_wheel, gr) + transform.translation;
+        let blwp = local_to_global(wheels.back_left_wheel, gr) + transform.translation;
+        let brwp = local_to_global(wheels.back_right_wheel, gr) + transform.translation;
 
         let ground_height = 0.0;
         let wheel_radius = 0.3; // Adjust to match your wheel size
@@ -559,7 +548,7 @@ impl FlightModel {
         if penetration > 0.0 {
             self.on_ground = true;
             let total = damping_force + spring_k * penetration;
-            let upward_force = (global_to_local(Vec3::new(0.0, total, 0.0), rotation));
+            let upward_force = global_to_local(Vec3::new(0.0, total, 0.0), rotation);
             self.add_local_force(upward_force * multi, local_pos);
         } else {
             self.on_ground = false;

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use bevy::math::FloatExt;
 use std::process::exit;
 

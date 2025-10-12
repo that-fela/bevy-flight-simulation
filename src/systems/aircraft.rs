@@ -2,20 +2,26 @@ use crate::*;
 
 pub fn spawn_plane(
     mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    // mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     let plane_name = "su-25t";
 
     let plane = Plane::new(plane_name, PLANE_SPAWN_VEL);
-    let plane_model: Handle<Scene> =
+    let plane_model_handle: Handle<Scene> =
         asset_server.load(format!("aircraft/{}/model.glb#Scene0", plane_name));
-    let plane_texture_handle = asset_server.load(format!("aircraft/{}/texture.png", plane_name));
-    let plane_material = materials.add(StandardMaterial {
-        base_color_texture: Some(plane_texture_handle),
-        perceptual_roughness: 0.5,
-        ..default()
-    });
+    // let plane_mesh_handle: Handle<Mesh> = asset_server.load(format!(
+    //     "aircraft/{}/model.glb#Mesh0/Primitive0",
+    //     plane_name
+    // ));
+    // let plane_texture_handle = asset_server.load(format!("aircraft/{}/texture.png", plane_name));
+    // let plane_material = materials.add(StandardMaterial {
+    //     base_color_texture: Some(plane_texture_handle),
+    //     perceptual_roughness: 0.5,
+    //     ..default()
+    // });
+
+    // Try to get the mesh asset for collider creation
     let player_entity = commands
         .spawn((
             Transform {
@@ -29,7 +35,7 @@ pub fn spawn_plane(
         ))
         .with_children(|parent| {
             parent.spawn((
-                SceneRoot(plane_model),
+                SceneRoot(plane_model_handle),
                 Transform::from_scale(Vec3::splat(1.0))
                     .with_rotation(Quat::from_rotation_y(std::f32::consts::PI)), // Rotate 180° around Y
             ));
