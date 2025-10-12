@@ -65,7 +65,7 @@ fn main() {
             (
                 update_dogfight_ai, // First assess situation
                 apply_ai_controls,  // Then apply controls
-                draw_target_vec,
+                // draw_target_vec,
                 aircraft::simulate_plane,
                 aircraft::update_plane_readings,
                 game::camera_follow,
