@@ -1,4 +1,4 @@
-use crate::plane::plane_config::{self, PlaneConfig};
+use crate::plane::plane_config::PlaneConfig;
 use bevy::prelude::*;
 
 #[derive(Debug)]
@@ -13,9 +13,9 @@ pub struct FlightModel {
     pub angular_velocity: Vec3,
     pub airspeed: Vec3,
     pub current_mass: f32,
+    pub velocity_local: Vec3,
 
-    pub pi: f32,
-    pub rad_to_deg: f32,
+    pub draw_vecs: Vec<(Vec3, Vec3)>,
 
     pub s: f32,
     pub wingspan: f32,
@@ -145,55 +145,16 @@ impl FlightModel {
             idle_rpm: idle_rpm,
             s: data.basic.wing_area,
             current_mass: current_mass,
-
-            pi: std::f32::consts::PI,
-            rad_to_deg: 180.0 / std::f32::consts::PI,
-
-            left_wing_pos: Vec3 {
-                x: cm_vec.x - 0.7,
-                y: cm_vec.y + 0.5,
-                z: -wingspan / 2.0,
-            },
-            right_wing_pos: Vec3 {
-                x: cm_vec.x - 0.7,
-                y: cm_vec.y + 0.5,
-                z: wingspan / 2.0,
-            },
-            tail_pos: Vec3 {
-                x: cm_vec.x - 0.5,
-                y: cm_vec.y,
-                z: 0.0,
-            },
-            elevator_pos: Vec3 {
-                x: -length / 2.0,
-                y: cm_vec.y,
-                z: 0.0,
-            },
-            left_aileron_pos: Vec3 {
-                x: cm_vec.x,
-                y: cm_vec.y,
-                z: -wingspan * 0.5,
-            },
-            right_aileron_pos: Vec3 {
-                x: cm_vec.x,
-                y: cm_vec.y,
-                z: wingspan * 0.5,
-            },
-            rudder_pos: Vec3 {
-                x: -length / 2.0,
-                y: height / 2.0,
-                z: 0.0,
-            },
-            left_engine_pos: Vec3 {
-                x: -3.793,
-                y: -0.391,
-                z: -0.716,
-            },
-            right_engine_pos: Vec3 {
-                x: -3.793,
-                y: -0.391,
-                z: 0.716,
-            },
+            draw_vecs: Vec::new(),
+            left_wing_pos: data.structure.left_wing_pos,
+            right_wing_pos: data.structure.right_wing_pos,
+            tail_pos: data.structure.tail_pos,
+            elevator_pos: data.structure.elevator_pos,
+            left_aileron_pos: data.structure.left_aileron_pos,
+            right_aileron_pos: data.structure.right_aileron_pos,
+            rudder_pos: data.structure.rudder_pos,
+            left_engine_pos: data.structure.left_engine_pos,
+            right_engine_pos: data.structure.right_engine_pos,
             plane_config: data,
             ..Default::default()
         }
@@ -212,13 +173,12 @@ impl Default for FlightModel {
             angular_velocity: Vec3::default(),
             current_mass: 0.0,
             airspeed: Vec3::default(),
-            pi: std::f32::consts::PI,
-            rad_to_deg: 180.0 / std::f32::consts::PI,
             s: 0.0,
             wingspan: 0.0,
             length: 0.0,
             height: 0.0,
             idle_rpm: 0.0,
+            draw_vecs: Vec::default(),
             left_wing_pos: Vec3::default(),
             right_wing_pos: Vec3::default(),
             tail_pos: Vec3::default(),
@@ -262,11 +222,12 @@ impl Default for FlightModel {
             gear_pos: 0.0,
             wheel_brake: 0.0,
             carrier_pos: 0,
+            velocity_local: Vec3::default(),
             internal_fuel: 0.0,
             external_fuel: 0.0,
             total_fuel: 0.0,
             fuel_consumption_since_last_time: 0.0,
-            atmosphere_density: 101000.0,
+            atmosphere_density: 1.0100, // change this to a table
             altitude_asl: 0.0,
             altitude_agl: 0.0,
             v_scalar: 0.0,

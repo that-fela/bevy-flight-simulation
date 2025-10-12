@@ -19,9 +19,35 @@ impl Plane {
     }
 
     pub fn simulate(&mut self, dt: f32, transform: &mut Transform) {
-        self.flight_model.simulate(dt);
+        self.flight_model.update_variables(transform);
+        self.flight_model.simulate(dt, transform);
         self.flight_model.transform(dt, transform);
-        self.flight_model.update_variables();
+    }
+
+    pub fn gamepad_input(&mut self, gamepad: &Gamepad) {
+        let controls = &mut self.flight_model;
+
+        controls.pitch_analog = true;
+        controls.roll_analog = true;
+
+        let left_stick_x = gamepad.get(GamepadAxis::LeftStickX).unwrap_or(0.0);
+        let left_stick_y = gamepad.get(GamepadAxis::LeftStickY).unwrap_or(0.0);
+
+        let deadzone = 0.1;
+        let move_x = if left_stick_x.abs() > deadzone {
+            left_stick_x * 0.5
+        } else {
+            0.0
+        };
+        let move_y = if left_stick_y.abs() > deadzone {
+            -left_stick_y
+        } else {
+            0.0
+        };
+
+        let mul = 1.0;
+        controls.pitch_input = limit(move_y * mul, -1.0, 1.0);
+        controls.roll_input = limit(move_x * mul, -1.0, 1.0);
     }
 
     pub fn input(&mut self, keyboard: &Res<ButtonInput<KeyCode>>) {
@@ -38,19 +64,23 @@ impl Plane {
 
         let controls = &mut self.flight_model;
 
-        if keyboard.pressed(KeyCode::ArrowUp) {
+        controls.pitch_analog = false;
+        controls.roll_analog = false;
+        controls.yaw_analog = false;
+
+        if keyboard.pressed(KeyCode::ArrowDown) {
             controls.pitch_discrete = 1;
             controls.pitch_analog = false;
-        } else if keyboard.pressed(KeyCode::ArrowDown) {
+        } else if keyboard.pressed(KeyCode::ArrowUp) {
             controls.pitch_discrete = -1;
             controls.pitch_analog = false;
         } else {
             controls.pitch_discrete = 0;
         }
 
-        if keyboard.just_pressed(KeyCode::PageUp) {
+        if keyboard.just_pressed(KeyCode::KeyK) {
             controls.pitch_trim += TRIM_PITCH_STEP;
-        } else if keyboard.just_pressed(KeyCode::PageDown) {
+        } else if keyboard.just_pressed(KeyCode::KeyM) {
             controls.pitch_trim -= TRIM_PITCH_STEP;
         }
 
@@ -121,12 +151,12 @@ impl Plane {
         }
 
         // --- Engine toggles ---
-        if keyboard.just_pressed(KeyCode::Digit1) {
-            controls.left_engine_switch = !controls.left_engine_switch;
-        }
-        if keyboard.just_pressed(KeyCode::Digit2) {
-            controls.right_engine_switch = !controls.right_engine_switch;
-        }
+        // if keyboard.just_pressed(KeyCode::Digit1) {
+        //     controls.left_engine_switch = !controls.left_engine_switch;
+        // }
+        // if keyboard.just_pressed(KeyCode::Digit2) {
+        //     controls.right_engine_switch = !controls.right_engine_switch;
+        // }
 
         // --- Airbrake ---
         if keyboard.just_pressed(KeyCode::KeyB) {
@@ -149,9 +179,5 @@ impl Plane {
         } else {
             controls.wheel_brake = 0.0;
         }
-    }
-
-    pub fn start_hot(&mut self) {
-        self.flight_model.start_hot();
     }
 }

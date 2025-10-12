@@ -3,6 +3,7 @@
 
 use std::default;
 
+use bevy::math::Vec3;
 use serde::Deserialize;
 
 use crate::plane::plane::Plane;
@@ -23,6 +24,7 @@ pub struct Basic {
     pub moment_of_inertia: [f32; 4],
     pub empty_mass: f32,
     pub gross_mass: f32,
+    pub number_of_engines: u8,
 }
 
 #[derive(Debug, Deserialize)]
@@ -63,6 +65,22 @@ pub struct EngineTables {
     pub engine_power_readout: Vec<f32>,
 }
 
+#[derive(Debug, Deserialize, Copy, Clone)]
+pub struct Structure {
+    pub front_wheel: Vec3,
+    pub back_left_wheel: Vec3,
+    pub back_right_wheel: Vec3,
+    pub left_wing_pos: Vec3,
+    pub right_wing_pos: Vec3,
+    pub tail_pos: Vec3,
+    pub elevator_pos: Vec3,
+    pub left_aileron_pos: Vec3,
+    pub right_aileron_pos: Vec3,
+    pub rudder_pos: Vec3,
+    pub left_engine_pos: Vec3,
+    pub right_engine_pos: Vec3,
+}
+
 /// Main configuration struct
 #[derive(Debug, Deserialize)]
 pub struct PlaneConfig {
@@ -70,6 +88,7 @@ pub struct PlaneConfig {
     pub basic: Basic,
     pub aerodynamics: Aerodynamics,
     pub engine: Engine,
+    pub structure: Structure,
 }
 
 pub fn load_config(plane_type: &str) -> PlaneConfig {

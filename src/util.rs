@@ -1,6 +1,23 @@
 use bevy::math::FloatExt;
+use std::process::exit;
 
-#[inline]
+const LIM: u32 = 2;
+static mut COUNTER: u32 = 0;
+pub fn iter_or_exit() {
+    unsafe {
+        if COUNTER > LIM {
+            exit(0);
+        }
+        COUNTER += 1;
+    }
+}
+
+#[inline(always)]
+pub fn rad(f: f32) -> f32 {
+    f.to_radians()
+}
+
+#[inline(always)]
 pub fn actuator(value: f32, target: f32, down_speed: f32, up_speed: f32) -> f32 {
     if value + up_speed < target {
         value + up_speed
@@ -11,12 +28,12 @@ pub fn actuator(value: f32, target: f32, down_speed: f32, up_speed: f32) -> f32 
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn limit(input: f32, lower: f32, upper: f32) -> f32 {
     input.clamp(lower, upper)
 }
 
-#[inline]
+#[inline(always)]
 pub fn rescale(input: f32, min: f32, max: f32) -> f32 {
     if input >= 0.0 {
         input * max.abs()
