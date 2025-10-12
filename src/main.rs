@@ -4,8 +4,12 @@ mod plane {
     pub mod plane;
     pub mod plane_config;
 }
+mod ai {
+    pub mod dogfight_ai;
+}
 mod util;
 
+use crate::ai::dogfight_ai::{DogfightAI, apply_ai_controls, update_dogfight_ai};
 use crate::plane::plane::Plane;
 use avian3d::math::PI;
 use avian3d::prelude::*;
@@ -22,9 +26,13 @@ fn main() {
             PhysicsPlugins::default(),
         ))
         .add_systems(Startup, (spawn_plane, setup))
+        .add_systems(Startup, spawn_enemy_plane.after(spawn_plane))
         .add_systems(
             Update,
             (
+                update_dogfight_ai, // First assess situation
+                apply_ai_controls,  // Then apply controls
+                draw_target_vec,
                 simulate,
                 camera_follow,
                 update_fps,
@@ -40,11 +48,23 @@ struct PlaneComponent {
     plane: Plane,
 }
 
+#[derive(Resource)]
+struct PlayerEntity(Entity);
+
 #[derive(Component)]
 struct FpsText;
 
 #[derive(Component)]
 struct PlaneReadingsText;
+
+#[derive(Component)]
+struct Player;
+
+#[derive(Component)]
+struct Enemy;
+
+pub const PLANE_SPAWN_POS: Vec3 = vec3(0.0, 3000.0, 2000.0);
+pub const PLANE_SPAWN_VEL: Vec3 = vec3(0.0, 0.0, -200.0);
 
 fn spawn_plane(
     mut commands: Commands,
@@ -54,7 +74,7 @@ fn spawn_plane(
 ) {
     let plane_name = "su-25t";
 
-    let plane = Plane::new(plane_name);
+    let plane = Plane::new(plane_name, PLANE_SPAWN_VEL);
     let plane_model: Handle<Scene> =
         asset_server.load(format!("aircraft/{}/model.glb#Scene0", plane_name));
     let plane_texture_handle = asset_server.load(format!("aircraft/{}/texture.png", plane_name));
@@ -63,15 +83,16 @@ fn spawn_plane(
         perceptual_roughness: 0.5,
         ..default()
     });
-    commands
+    let player_entity = commands
         .spawn((
             Transform {
-                translation: Vec3::new(0.0, 4000.0, 0.0),
+                translation: PLANE_SPAWN_POS,
                 rotation: Quat::from_rotation_x(10_f32.to_radians()),
                 ..default()
             },
             Visibility::default(),
             PlaneComponent { plane },
+            Player,
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -86,16 +107,8 @@ fn spawn_plane(
                     ..default()
                 },
             ));
-        });
-
-    // commands.spawn((
-    //     Camera3d::default(),
-    //     Transform {
-    //         translation: Vec3::new(0.0, 10.0, -50.0),
-    //         rotation: Quat::from_rotation_x(-30_f32.to_radians()),
-    //         ..default()
-    //     },
-    // ));
+        })
+        .id();
 
     // Plane Readings Text
     commands.spawn((
@@ -113,6 +126,39 @@ fn spawn_plane(
         },
         PlaneReadingsText,
     ));
+
+    commands.insert_resource(PlayerEntity(player_entity));
+}
+
+fn spawn_enemy_plane(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    player_entity: Res<PlayerEntity>,
+) {
+    let plane_name = "su-25t";
+    let plane = Plane::new(plane_name, vec3(0.0, 0.0, 200.0));
+    let plane_model: Handle<Scene> =
+        asset_server.load(format!("aircraft/{}/model.glb#Scene0", plane_name));
+
+    commands
+        .spawn((
+            Transform {
+                translation: Vec3::new(0.0, 3000.0, -1000.0),
+                rotation: Quat::from_rotation_y(std::f32::consts::PI),
+                ..default()
+            },
+            Visibility::default(),
+            PlaneComponent { plane },
+            DogfightAI::new(Some(player_entity.0)),
+            Enemy,
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                SceneRoot(plane_model),
+                Transform::from_scale(Vec3::splat(1.0))
+                    .with_rotation(Quat::from_rotation_y(std::f32::consts::PI)),
+            ));
+        });
 }
 
 fn setup(
@@ -135,7 +181,7 @@ fn setup(
     let grid_size = 50;
     let size = 1000.0;
     for x in -grid_size..grid_size {
-        for y in -grid_size..grid_size {
+        for z in -grid_size..grid_size {
             let ground_texture_handle = asset_server.load("ground.png");
             let ground_material = materials.add(StandardMaterial {
                 base_color_texture: Some(ground_texture_handle),
@@ -145,22 +191,18 @@ fn setup(
             commands.spawn((
                 Mesh3d(meshes.add(Cuboid::new(size, 0.1, size))),
                 MeshMaterial3d(ground_material),
-                Transform::from_xyz(x as f32 * size, 0.0, y as f32 * size),
+                Transform::from_xyz(x as f32 * size, 0.0, z as f32 * size),
             ));
         }
     }
 
-    // Materials
+    // Runway
     let grey_material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.2, 0.2, 0.2),
         ..default()
     });
-    let white_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.9, 0.9, 0.9),
-        ..default()
-    });
-    let length = 3000.0;
-    let width = 40.0;
+    let length = 6000.0;
+    let width = 100.0;
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(width, 0.2, length))),
         MeshMaterial3d(grey_material),
@@ -199,22 +241,23 @@ fn setup(
         FpsText,
     ));
 
+    // Clouds
     let cloud_altitude = 3000.0; // meters
     let cloud_amount = 10000;
-    let cloud_size = 200.0; // meters
+    let cloud_size = 400.0; // meters
     let distibution_radius = 500000.0; // meters
     // for loop to create clouds in random positions
     for i in 0..cloud_amount {
         let x = (rand::random::<f32>() - 0.5) * distibution_radius;
         let z = (rand::random::<f32>() - 0.5) * distibution_radius;
         commands.spawn((
-            Mesh3d(meshes.add(Sphere::new(cloud_size))),
+            Mesh3d(meshes.add(Sphere::new(cloud_size * (rand::random::<f32>() + 0.5)))),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: Color::srgb(1.0, 1.0, 1.0),
                 perceptual_roughness: 1.0,
                 ..default()
             })),
-            Transform::from_xyz(x, cloud_altitude, z),
+            Transform::from_xyz(x, cloud_altitude + (rand::random::<f32>() * 1000.0), z),
         ));
     }
 
@@ -227,15 +270,17 @@ fn simulate(
     gamepads: Query<&Gamepad>,
     time: Res<Time>,
     mut gizmos: Gizmos,
-    mut plane_query: Query<(&mut Transform, &mut PlaneComponent)>,
+    mut plane_query: Query<(&mut Transform, &mut PlaneComponent, Option<&Player>)>,
 ) {
-    for (mut transform, mut plane_component) in plane_query.iter_mut() {
+    for (mut transform, mut plane_component, is_player) in plane_query.iter_mut() {
         let plane = &mut plane_component.plane;
         let dt = time.delta_secs();
 
-        plane.input(&keyboard);
-        for gamepad in gamepads.iter() {
-            plane.gamepad_input(gamepad);
+        if is_player.is_some() {
+            plane.input(&keyboard);
+            for gamepad in gamepads.iter() {
+                plane.gamepad_input(gamepad);
+            }
         }
 
         for (direction, position) in &plane.flight_model.draw_vecs {
@@ -254,7 +299,7 @@ fn camera_follow(
     gamepads: Query<&Gamepad>,
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Camera3d>>,
-    plane_query: Query<&PlaneComponent>,
+    plane_query: Query<&PlaneComponent, With<Player>>, // Only query player
 ) {
     for mut transform in query.iter_mut() {
         let dt = time.delta_secs();
@@ -270,10 +315,9 @@ fn camera_follow(
         let right_y = gamepad.get(GamepadAxis::RightStickY).unwrap_or(0.0);
 
         let turn = vec3(
-            transform.translation.z * (right_x * 2.0).sin() * 1.1,
-            // 0.0,
-            transform.translation.z * (right_y * 2.0).sin() * 1.1 + 5.7,
-            transform.translation.z * (right_x * 2.0).cos() * 1.1,
+            20.0 * (right_x * PI / 2.0).sin() * 1.2,
+            20.0 * (right_y * PI / 2.0).sin() * 1.2 + 5.7,
+            (transform.translation.z * (right_x * PI / 2.0).cos() * 1.2),
         );
 
         let mut rng = rand::rng();
@@ -297,18 +341,8 @@ fn camera_follow(
     }
 }
 
-fn update_fps(diagnostics: Res<DiagnosticsStore>, mut query: Query<&mut Text, With<FpsText>>) {
-    for mut text in &mut query {
-        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(value) = fps.smoothed() {
-                text.0 = format!("FPS: {:.0}", value);
-            }
-        }
-    }
-}
-
 fn update_plane_readings(
-    plane_query: Query<(&Transform, &PlaneComponent)>,
+    plane_query: Query<(&Transform, &PlaneComponent), With<Player>>, // Only query player
     mut text_query: Query<&mut Text, With<PlaneReadingsText>>,
 ) {
     if let Ok((transform, plane_component)) = plane_query.single() {
@@ -316,13 +350,8 @@ fn update_plane_readings(
         let fm = &plane.flight_model;
 
         for mut text in &mut text_query {
-            // Convert m/s to knots (1 m/s = 1.94384 knots)
             let speed_knots = fm.velocity.length() * 1.94384;
-
-            // Convert altitude from meters to feet (1 m = 3.28084 ft)
             let altitude_feet = transform.translation.y * 3.28084;
-
-            // Throttle as percentage
             let throttle_in_percent = fm.left_throttle_input * 100.0;
             let throttle_out_percent = fm.left_engine_power_readout * 100.0;
 
@@ -330,6 +359,7 @@ fn update_plane_readings(
                 "
                 Speed: {:.0} kt
                 Alt: {:.0} ft
+                Mach: {:.1}
                 Throttle: {:.0}% | {:.0}%
                 A: {:.2}
                 g: {:.2}
@@ -341,6 +371,7 @@ fn update_plane_readings(
                 ",
                 speed_knots,
                 altitude_feet,
+                fm.mach,
                 throttle_in_percent,
                 throttle_out_percent,
                 fm.alpha,
@@ -353,19 +384,36 @@ fn update_plane_readings(
                 fm.airbrake_pos,
                 fm.slats_pos,
             );
+        }
+    }
+}
 
-            // text.0 = format!(
-            //     "s {}\nvel {:?}\nlocal vel {:?}\ncf {:?}\nalpha {}\nbeta {}\nP,R,Y: {:.2}, {:.2}, {:.2}",
-            //     fm.velocity_local.length(),
-            //     fm.velocity,
-            //     fm.velocity_local,
-            //     fm.common_force,
-            //     fm.alpha,
-            //     fm.beta,
-            //     fm.pitch_input,
-            //     fm.roll_input,
-            //     fm.yaw_input,
-            // );
+fn update_fps(diagnostics: Res<DiagnosticsStore>, mut query: Query<&mut Text, With<FpsText>>) {
+    for mut text in &mut query {
+        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
+            if let Some(value) = fps.smoothed() {
+                text.0 = format!("FPS: {:.0}", value);
+            }
+        }
+    }
+}
+
+fn draw_target_vec(
+    mut gizmos: Gizmos,
+    player_query: Query<&Transform, With<Player>>,
+    enemy_query: Query<&Transform, With<Enemy>>,
+) {
+    if let Ok(player_transform) = player_query.single() {
+        for enemy_transform in enemy_query.iter() {
+            let start = player_transform.translation;
+            let end = enemy_transform.translation;
+
+            // Draw arrow from player to enemy
+            gizmos.arrow(
+                start,
+                end,
+                Color::srgb(1.0, 0.0, 0.0), // Red arrow
+            );
         }
     }
 }

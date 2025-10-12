@@ -8,10 +8,10 @@ pub struct Plane {
 }
 
 impl Plane {
-    pub fn new(plane_type: &str) -> Self {
+    pub fn new(plane_type: &str, vel: Vec3) -> Self {
         let plane_config = load_config(plane_type);
         let mut flight_model = FlightModel::new(plane_config);
-        flight_model.start_hot();
+        flight_model.start_hot(vel);
 
         Plane {
             flight_model: flight_model,

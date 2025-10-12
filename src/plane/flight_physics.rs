@@ -1,6 +1,7 @@
 use std::f64::consts::E;
 use std::process::exit;
 
+use crate::PLANE_SPAWN_VEL;
 use crate::plane::{flight_model::FlightModel, plane_config};
 use crate::util::{actuator, iter_or_exit, limit, rad, rescale, table_lerp};
 use bevy::math::ops::sqrt;
@@ -419,6 +420,7 @@ impl FlightModel {
         self.airspeed = self.velocity_local;
 
         let mach = self.airspeed.length() / self.speed_of_sound;
+        self.mach = mach;
 
         let aero = &self.plane_config.aerodynamics;
         let at = &aero.tables;
@@ -549,11 +551,10 @@ impl FlightModel {
         let wheel_bottom = wheel_pos.y - wheel_radius;
         let penetration = ground_height - wheel_bottom;
 
-        let damping = 200000.0;
-        let spring_k = 4000000.0;
+        let damping = 50000.0;
+        let spring_k = 2000000.0;
 
-        let vel = (self.velocity);
-        let damping_force = -damping * vel.y;
+        let damping_force = -damping * self.velocity.y;
 
         if penetration > 0.0 {
             self.on_ground = true;
@@ -595,25 +596,36 @@ impl FlightModel {
         }
     }
 
-    pub fn start_hot(&mut self) {
+    pub fn start_hot(&mut self, vel: Vec3) {
         // Landing gear up
-        self.gear_switch = false;
-        self.gear_pos = 0.0;
-        self.carrier_pos = 0;
+        if vel == Vec3::ZERO {
+            self.gear_switch = true;
+            self.gear_pos = 1.0;
+
+            self.left_engine_switch = true;
+            self.left_throttle_input = 0.5;
+
+            self.right_engine_switch = true;
+            self.right_throttle_input = 0.5;
+        } else {
+            self.gear_switch = false;
+            self.gear_pos = 0.0;
+
+            self.left_engine_switch = true;
+            self.left_throttle_input = 0.9;
+
+            self.right_engine_switch = true;
+            self.right_throttle_input = 0.9;
+        }
+
+        self.current_mass = 10000.0;
+        self.velocity = vel;
 
         //Engines on at 50% throttle
-        self.left_engine_switch = true;
-        self.left_throttle_input = 0.5;
         self.left_throttle_output = 0.5;
         self.left_engine_power_readout = 0.5;
 
-        self.right_engine_switch = true;
-        self.right_throttle_input = 0.5;
         self.right_throttle_output = 0.5;
         self.right_engine_power_readout = 0.5;
-
-        self.pitch_input = -0.0;
-
-        self.velocity = vec3(0.0, 0.0, -200.0);
     }
 }
