@@ -10,4 +10,4 @@ Arrow keys (or axis 1) - Elevator / Ailerons\
 Z / X - Rudder\
 W / S - Throttle\
 B - Airbrakes\
-F - Flaps\
+F - Flaps
